@@ -1,5 +1,3 @@
-// Netlify Function — scraping de rendimientos.co + análisis con Gemini
-
 exports.handler = async function(event, context) {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "POST, OPTIONS" }, body: "" };
@@ -16,120 +14,166 @@ exports.handler = async function(event, context) {
   const userMessage = body.messages && body.messages[0] ? body.messages[0].content : "";
   const q = userMessage.toLowerCase();
 
-  // ── DETECTAR QUÉ DATOS NECESITA Y SCRAPEAR EN TIEMPO REAL ──────────────
   let datosEnVivo = "";
 
+  // Helper para fetch con timeout
+  async function fetchConTimeout(url, ms = 5000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch(e) {
+      clearTimeout(timeout);
+      return null;
+    }
+  }
+
   try {
-    // Siempre traer dólar (es liviano y casi siempre relevante)
-    const dolarRes = await fetch("https://dolarapi.com/v1/dolares");
-    const dolarData = await dolarRes.json();
-    const dolarTexto = dolarData.map(d =>
-      d.casa + ": compra $" + d.compra + " venta $" + d.venta
-    ).join(" | ");
-    datosEnVivo += "\n\nDÓLAR EN TIEMPO REAL (dolarapi.com):\n" + dolarTexto;
-
-    // Riesgo país
-    const rpRes = await fetch("https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo");
-    const rpData = await rpRes.json();
-    datosEnVivo += "\n\nRIESGO PAÍS ACTUAL: " + rpData.valor + " bps (fecha: " + rpData.fecha + ")";
-
-    // Si pregunta sobre letras, LECAPs, BONCAPs, TNA, rendimientos
-    if (q.includes("lecap") || q.includes("boncap") || q.includes("letra") || q.includes("tna") ||
-        q.includes("tir") || q.includes("rendimiento") || q.includes("vencimiento") || q.includes("tesoro")) {
-      
-      // Traer letras desde argentinadatos
-      const letrasRes = await fetch("https://api.argentinadatos.com/v1/finanzas/letras");
-      if (letrasRes.ok) {
-        const letrasData = await letrasRes.json();
-        if (Array.isArray(letrasData) && letrasData.length > 0) {
-          const letrasTexto = letrasData.slice(0, 20).map(l =>
-            (l.ticker || l.nombre || "") + " | vto: " + (l.vencimiento || l.fechaVencimiento || "") +
-            " | TNA: " + (l.tna || l.rendimiento || "") + "% | precio: " + (l.precio || l.precioMercado || "")
-          ).join("\n");
-          datosEnVivo += "\n\nLETRAS DEL TESORO EN TIEMPO REAL (argentinadatos.com):\n" + letrasTexto;
-        }
+    // ── DÓLAR (siempre) ───────────────────────────────────────────────────
+    const dolarData = await fetchConTimeout("https://dolarapi.com/v1/dolares");
+    if (dolarData) {
+      const lineas = dolarData.map(d => `${d.nombre || d.casa}: compra $${d.compra} | venta $${d.venta}`).join("\n");
+      datosEnVivo += "\n\n=== DÓLAR HOY (dolarapi.com) ===\n" + lineas;
+      // Calcular brecha
+      const oficial = dolarData.find(d => d.casa === "oficial");
+      const blue = dolarData.find(d => d.casa === "blue");
+      const ccl = dolarData.find(d => d.casa === "ccl");
+      const mep = dolarData.find(d => d.casa === "mep");
+      if (oficial && blue) {
+        datosEnVivo += `\nBrecha Blue/Oficial: ${((blue.venta/oficial.venta-1)*100).toFixed(1)}%`;
       }
-
-      // También traer FCI renta fija
-      const fciRes = await fetch("https://api.argentinadatos.com/v1/finanzas/fci/rentaFija/ultimos");
-      if (fciRes.ok) {
-        const fciData = await fciRes.json();
-        // Agrupar por fondo, tomar último
-        const fondosMap = {};
-        fciData.forEach(f => {
-          if (!fondosMap[f.fondo] || fondosMap[f.fondo].fecha < f.fecha) fondosMap[f.fondo] = f;
-        });
-        const top10 = Object.values(fondosMap)
-          .sort((a, b) => (b.tna || 0) - (a.tna || 0))
-          .slice(0, 10)
-          .map(f => f.fondo + " | TNA: " + ((f.tna || 0) * 100).toFixed(2) + "% | TEA: " + ((f.tea || 0) * 100).toFixed(2) + "%")
-          .join("\n");
-        datosEnVivo += "\n\nFCI RENTA FIJA TOP 10 POR TNA:\n" + top10;
+      if (oficial && ccl) {
+        datosEnVivo += ` | Brecha CCL/Oficial: ${((ccl.venta/oficial.venta-1)*100).toFixed(1)}%`;
       }
     }
 
-    // Si pregunta sobre billeteras, cuentas remuneradas
-    if (q.includes("billetera") || q.includes("cuenta remunerada") || q.includes("mercado pago") ||
-        q.includes("ualá") || q.includes("uala") || q.includes("lemon") || q.includes("personal pay") ||
-        q.includes("belo") || q.includes("donde poner") || q.includes("paga mas") || q.includes("mejor tna")) {
-      
-      const mmRes = await fetch("https://api.argentinadatos.com/v1/finanzas/fci/mercadoDinero/ultimos");
-      if (mmRes.ok) {
-        const mmData = await mmRes.json();
+    // ── RIESGO PAÍS (siempre) ─────────────────────────────────────────────
+    const rpData = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo");
+    if (rpData) {
+      datosEnVivo += `\n\n=== RIESGO PAÍS ===\n${rpData.valor} bps (${rpData.fecha})`;
+    }
+
+    // ── LECAPs / BONCAPs / LETRAS ─────────────────────────────────────────
+    const necesitaLetras = q.includes("lecap") || q.includes("boncap") || q.includes("letra") ||
+      q.includes("tna") || q.includes("tem") || q.includes("tea") || q.includes("vencimiento") ||
+      q.includes("vence") || q.includes("rendimiento") || q.includes("tesoro") || q.includes("tir") ||
+      q.includes("plazo") || q.includes("corto plazo");
+
+    if (necesitaLetras) {
+      // Intentar endpoint de rendimientos.co directamente
+      const lecapsData = await fetchConTimeout("https://rendimientos.co/api/lecaps");
+      if (lecapsData && Array.isArray(lecapsData) && lecapsData.length > 0) {
+        const tabla = lecapsData.map(l =>
+          `${l.ticker || l.sym} | DTM: ${l.dtm || l.diasAlVencimiento} | TEM: ${l.tem || l.tasa}% | TNA: ${l.tna}% | TEA: ${l.tea}% | Precio: ${l.precio || l.price}`
+        ).join("\n");
+        datosEnVivo += "\n\n=== LECAPs EN TIEMPO REAL (rendimientos.co) ===\nSYM | DTM | TEM | TNA | TEA | PRECIO\n" + tabla;
+      } else {
+        // Fallback: ROFEX/IAMC vía argentinadatos
+        const letrasAlt = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/letras/lecap");
+        if (letrasAlt && Array.isArray(letrasAlt) && letrasAlt.length > 0) {
+          const tabla = letrasAlt.map(l =>
+            `${l.ticker} | Vto: ${l.vencimiento} | TNA: ${l.tna}% | TEA: ${l.tea}% | Precio: ${l.precio}`
+          ).join("\n");
+          datosEnVivo += "\n\n=== LECAPs (argentinadatos.com) ===\n" + tabla;
+        } else {
+          // Fallback 2: IAMC cotizaciones letras
+          const letrasIAMC = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/letras");
+          if (letrasIAMC && Array.isArray(letrasIAMC) && letrasIAMC.length > 0) {
+            const tabla = letrasIAMC.slice(0, 20).map(l =>
+              `${JSON.stringify(l)}`
+            ).join("\n");
+            datosEnVivo += "\n\n=== LETRAS DATOS RAW ===\n" + tabla;
+          } else {
+            datosEnVivo += "\n\n=== LECAPs ===\nNo se pudo obtener cotizaciones en tiempo real. Los datos de LECAPs y BONCAPs se obtienen de BYMA/ROFEX con retardo.";
+          }
+        }
+      }
+    }
+
+    // ── BILLETERAS / FCI ──────────────────────────────────────────────────
+    const necesitaBilleteras = q.includes("billetera") || q.includes("cuenta remunerada") ||
+      q.includes("mercado pago") || q.includes("uala") || q.includes("ualá") ||
+      q.includes("lemon") || q.includes("personal pay") || q.includes("belo") ||
+      q.includes("paga mas") || q.includes("mejor tna") || q.includes("donde poner") ||
+      q.includes("fci") || q.includes("money market") || q.includes("fondo");
+
+    if (necesitaBilleteras) {
+      // FCI mercado dinero
+      const mmData = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/fci/mercadoDinero/ultimos");
+      if (mmData && Array.isArray(mmData)) {
         const fondosMap = {};
         mmData.forEach(f => {
           if (!fondosMap[f.fondo] || fondosMap[f.fondo].fecha < f.fecha) fondosMap[f.fondo] = f;
         });
-        const top15 = Object.values(fondosMap)
+        const ranking = Object.values(fondosMap)
           .sort((a, b) => (b.tna || 0) - (a.tna || 0))
           .slice(0, 15)
-          .map((f, i) => (i + 1) + ". " + f.fondo + " | TNA: " + ((f.tna || 0) * 100).toFixed(2) + "% | TEA: " + ((f.tea || 0) * 100).toFixed(2) + "%")
+          .map((f, i) => `${i+1}. ${f.fondo} | TNA: ${((f.tna||0)*100).toFixed(2)}% | TEA: ${((f.tea||0)*100).toFixed(2)}% | Fecha: ${f.fecha}`)
           .join("\n");
-        datosEnVivo += "\n\nBILLETERAS / FCI MERCADO DE DINERO - RANKING POR TNA (datos hoy):\n" + top15;
+        datosEnVivo += "\n\n=== BILLETERAS / FCI MERCADO DINERO - RANKING POR TNA (datos hoy) ===\n" + ranking;
+      }
+
+      // También FCI renta fija
+      const rfData = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/fci/rentaFija/ultimos");
+      if (rfData && Array.isArray(rfData)) {
+        const fondosMap = {};
+        rfData.forEach(f => {
+          if (!fondosMap[f.fondo] || fondosMap[f.fondo].fecha < f.fecha) fondosMap[f.fondo] = f;
+        });
+        const ranking = Object.values(fondosMap)
+          .sort((a, b) => (b.tna || 0) - (a.tna || 0))
+          .slice(0, 10)
+          .map((f, i) => `${i+1}. ${f.fondo} | TNA: ${((f.tna||0)*100).toFixed(2)}% | TEA: ${((f.tea||0)*100).toFixed(2)}%`)
+          .join("\n");
+        datosEnVivo += "\n\n=== FCI RENTA FIJA TOP 10 ===\n" + ranking;
       }
     }
 
-    // Si pregunta sobre bonos soberanos
-    if (q.includes("al30") || q.includes("gd30") || q.includes("ae38") || q.includes("gd46") ||
-        q.includes("bono") || q.includes("paridad") || q.includes("soberano")) {
-      
-      const bonosRes = await fetch("https://api.argentinadatos.com/v1/finanzas/bonos");
-      if (bonosRes.ok) {
-        const bonosData = await bonosRes.json();
-        if (Array.isArray(bonosData) && bonosData.length > 0) {
-          const bonosTexto = bonosData.slice(0, 15).map(b =>
-            (b.ticker || b.nombre || "") + " | precio: " + (b.precio || "") +
-            " | TIR: " + (b.tir || b.rendimiento || "") + "% | paridad: " + (b.paridad || "") + "%"
-          ).join("\n");
-          datosEnVivo += "\n\nBONOS SOBERANOS EN TIEMPO REAL:\n" + bonosTexto;
-        }
+    // ── BONOS SOBERANOS ───────────────────────────────────────────────────
+    const necesitaBonos = q.includes("al30") || q.includes("gd30") || q.includes("ae38") ||
+      q.includes("gd46") || q.includes("al35") || q.includes("gd35") || q.includes("al29") ||
+      q.includes("bono") || q.includes("soberano") || q.includes("paridad");
+
+    if (necesitaBonos) {
+      const bonosData = await fetchConTimeout("https://rendimientos.co/api/soberanos");
+      if (bonosData && Array.isArray(bonosData) && bonosData.length > 0) {
+        const tabla = bonosData.map(b =>
+          `${b.ticker || b.sym} | Precio: ${b.precio || b.price} | TIR: ${b.tir}% | Paridad: ${b.paridad}%`
+        ).join("\n");
+        datosEnVivo += "\n\n=== BONOS SOBERANOS EN TIEMPO REAL (rendimientos.co) ===\n" + tabla;
+      }
+    }
+
+    // ── PLAZO FIJO ────────────────────────────────────────────────────────
+    if (q.includes("plazo fijo")) {
+      const pfData = await fetchConTimeout("https://api.argentinadatos.com/v1/finanzas/tasas/depositos30Dias/ultimo");
+      if (pfData) {
+        datosEnVivo += `\n\n=== PLAZO FIJO ===\nTNA bancos privados (depósitos 30 días): ${pfData.valor}% (${pfData.fecha})`;
       }
     }
 
   } catch(e) {
-    datosEnVivo += "\n\n(No se pudieron obtener algunos datos en tiempo real: " + e.message + ")";
+    datosEnVivo += `\n\n(Error parcial al obtener datos: ${e.message})`;
   }
 
-  // ── LLAMAR A GEMINI CON LOS DATOS EN CONTEXTO ──────────────────────────
+  // ── LLAMADA A GEMINI ──────────────────────────────────────────────────
   const promptFinal = systemPrompt +
-    "\n\n== DATOS EN TIEMPO REAL OBTENIDOS AHORA ==" +
+    "\n\n== DATOS OBTENIDOS EN TIEMPO REAL AHORA ==" +
     datosEnVivo +
     "\n\n== FIN DE DATOS EN TIEMPO REAL ==" +
-    "\n\nUsá estos datos para responder con precisión. Si el dato que necesitás está arriba, usalo directamente. No digas que no tenés información si está en los datos de arriba.";
+    "\n\nIMPORTANTE: Usá EXCLUSIVAMENTE los datos de arriba para responder. Si el dato está en la sección de arriba, usalo directamente con los números exactos. No inventes ni estimes nada. Si algún dato falta, decilo claramente.";
 
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_KEY;
 
   const geminiBody = {
     contents: [{ role: "user", parts: [{ text: promptFinal + "\n\nPregunta del usuario: " + userMessage }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+    generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
   };
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(geminiBody),
-  });
-
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(geminiBody) });
   const data = await res.json();
 
   if (!res.ok) {
