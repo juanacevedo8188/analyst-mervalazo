@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Analyst Mervalazo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --surface: #161b22; --card: #1c2128; --border: #30363d;
+      --teal: #163f40; --teal2: #1a5254; --cream: #f0ead8; --salmon: #e8967a;
+      --green: #3fb950; --red: #f85149; --muted: #8b949e; --text: #e6edf3;
+      --blue: #58a6ff; --yellow: #d29922;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', 'Courier New', monospace; overflow: hidden; }
+    #app { height: 100vh; display: flex; flex-direction: column; max-width: 540px; margin: 0 auto; }
+
+    /* ── DESKTOP LAYOUT ── */
+    @media (min-width: 900px) {
+      body { display: flex; align-items: stretch; }
+      #app {
+        max-width: 100%;
+        flex-direction: row;
+        height: 100vh;
+      }
+      #app .header {
+        display: none; /* el header mobile se oculta */
+      }
+      #desktop-sidebar {
+        width: 260px;
+        min-width: 260px;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+      #desktop-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+      }
+      #desktop-main .header {
+        display: flex !important;
+        border-radius: 0;
+      }
+    }
+    @media (max-width: 899px) {
+      #desktop-sidebar { display: none !important; }
+      #desktop-main { display: contents; }
+    }
+    button { font-family: inherit; cursor: pointer; }
+    button:active { opacity: 0.7; }
+    input { font-family: inherit; }
+    input::placeholder { color: var(--muted); opacity: 1; }
+    ::-webkit-scrollbar { width: 2px; height: 2px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* HEADER */
+    .header { border-bottom: 1px solid var(--border); background: linear-gradient(135deg, var(--teal) 0%, #0d2526 100%); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .header-logo { width: 30px; height: 30px; border-radius: 7px; background: var(--salmon); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: #fff; flex-shrink: 0; }
+    .header-title { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--cream); }
+    .header-title span { color: var(--salmon); }
+    .header-sub { font-size: 8px; color: rgba(240,234,216,0.5); letter-spacing: 1.5px; }
+    .btn-back { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; color: var(--muted); font-size: 10px; }
+
+    /* HOME */
+    .home { flex: 1; overflow-y: auto; padding: 14px 14px 20px; }
+    .search-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 13px 14px; margin-bottom: 10px; }
+    .search-label { font-size: 9px; color: var(--muted); margin-bottom: 7px; letter-spacing: 1.5px; }
+    .search-row { display: flex; gap: 7px; }
+    .search-input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 11px 13px; color: var(--cream); font-size: 17px; font-weight: 700; letter-spacing: 2px; outline: none; min-width: 0; }
+    .search-btn { background: var(--salmon); border: none; border-radius: 8px; padding: 0 16px; color: #fff; font-size: 17px; height: 46px; flex-shrink: 0; }
+    .quick-tickers { margin-top: 10px; display: flex; gap: 5px; overflow-x: auto; padding-bottom: 2px; }
+    .quick-btn { background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; color: var(--muted); font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+    .error-msg { margin-top: 7px; font-size: 11px; color: var(--red); }
+    .live-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .live-card { background: linear-gradient(135deg, var(--card), var(--surface)); border-radius: 11px; padding: 14px 12px; cursor: pointer; text-align: left; border: none; }
+    .live-icon { font-size: 22px; margin-bottom: 6px; }
+    .live-title { font-size: 12px; color: var(--cream); font-weight: 700; margin-bottom: 3px; }
+    .live-sub { font-size: 10px; color: var(--muted); }
+    .live-dot { font-size: 9px; font-weight: 700; margin-top: 5px; }
+
+    /* DOLAR PANEL */
+    .panel { flex: 1; overflow-y: auto; padding: 8px 14px 16px; }
+    .panel-header { padding: 8px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; align-items: center; gap: 7px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .panel-title { font-size: 9px; letter-spacing: 2px; font-weight: 700; }
+    .panel-refresh { margin-left: auto; background: transparent; border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; color: var(--muted); font-size: 9px; }
+    .section-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 8px; }
+    .dolar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 14px; }
+    .dolar-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .dolar-name { font-size: 9px; color: var(--muted); letter-spacing: 1px; margin-bottom: 3px; }
+    .dolar-vals { display: flex; justify-content: space-between; align-items: center; }
+    .dolar-label { font-size: 11px; color: var(--muted); }
+    .dolar-val { font-size: 13px; font-weight: 700; color: var(--cream); }
+    .riesgo-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+    .riesgo-val { font-size: 28px; font-weight: 900; }
+    .riesgo-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .brecha-card { background: linear-gradient(135deg, #1a2a1a, #163f40); border: 1px solid var(--teal2); border-radius: 8px; padding: 12px 14px; }
+    .brecha-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .brecha-item { text-align: center; }
+    .brecha-label { font-size: 9px; color: var(--muted); margin-bottom: 2px; }
+    .brecha-val { font-size: 15px; font-weight: 700; color: var(--salmon); }
+
+    /* BILLETERAS */
+    .tab-row { display: flex; background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; }
+    .tab-btn { flex: 1; padding: 8px; border: none; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; }
+    .fondo-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 7px; position: relative; }
+    .fondo-card.top { border-color: var(--green); }
+    .top-badge { position: absolute; top: 8px; right: 10px; font-size: 9px; background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); border-radius: 4px; padding: 2px 6px; font-weight: 700; }
+    .fondo-name { font-size: 12px; font-weight: 700; color: var(--cream); margin-bottom: 4px; padding-right: 70px; word-break: break-word; }
+    .fondo-vals { display: flex; gap: 16px; }
+    .fondo-val-group { }
+    .fondo-val-label { font-size: 9px; color: var(--muted); }
+    .fondo-val-num { font-size: 15px; font-weight: 900; }
+
+    /* TICKER */
+    .ticker-card { margin: 10px 14px 0; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 12px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-shrink: 0; }
+    .badge { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 4px; padding: 3px 8px; }
+    .ticker-name-big { font-size: 22px; font-weight: 900; color: var(--cream); letter-spacing: 1px; margin-top: 5px; line-height: 1; }
+    .ticker-fullname { font-size: 11px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ticker-price { font-size: 16px; font-weight: 700; color: var(--cream); }
+    .ticker-change { font-size: 12px; font-weight: 700; margin-top: 1px; }
+    .tabs { margin: 8px 14px 0; display: flex; background: var(--card); border: 1px solid var(--border); border-radius: 9px; overflow: hidden; flex-shrink: 0; }
+    .tab { flex: 1; padding: 9px; border: none; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; cursor: pointer; }
+    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .metric-card { background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 10px 11px; }
+    .metric-label { font-size: 8px; color: var(--muted); letter-spacing: 1px; margin-bottom: 3px; }
+    .metric-val { font-size: 12px; font-weight: 700; color: var(--cream); word-break: break-word; }
+    .chat-cta { width: 100%; margin-top: 12px; background: linear-gradient(135deg, var(--teal), var(--teal2)); border: 1px solid var(--teal2); border-radius: 9px; padding: 13px; color: var(--cream); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+
+    /* CHAT */
+    .chat-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+    .chat-header { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 7px; background: rgba(22,63,64,0.4); flex-shrink: 0; }
+    .messages { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .msg-row { display: flex; }
+    .msg-row.user { justify-content: flex-end; }
+    .avatar { width: 24px; height: 24px; border-radius: 6px; background: var(--salmon); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; margin-right: 7px; flex-shrink: 0; margin-top: 2px; }
+    .bubble { max-width: 83%; border-radius: 11px; padding: 9px 12px; font-size: 13px; line-height: 1.65; }
+    .bubble.assistant { background: var(--card); border: 1px solid var(--border); border-top-left-radius: 3px; }
+    .bubble.user { background: var(--teal); border: 1px solid var(--teal2); border-bottom-right-radius: 3px; }
+    .bubble p { margin: 3px 0; }
+    .typing { font-size: 16px; color: var(--muted); letter-spacing: 4px; }
+    .suggestions { padding: 0 10px 7px; display: flex; gap: 5px; overflow-x: auto; flex-shrink: 0; }
+    .sug-btn { background: transparent; border: 1px solid var(--border); border-radius: 18px; padding: 5px 11px; color: var(--muted); font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+    .chat-input-row { padding: 8px 10px 10px; border-top: 1px solid var(--border); display: flex; gap: 7px; flex-shrink: 0; background: var(--surface); }
+    .chat-input { flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 10px 14px; color: var(--text); font-size: 13px; outline: none; min-width: 0; }
+    .send-btn { background: var(--salmon); border: none; border-radius: 50%; width: 42px; height: 42px; color: #fff; font-size: 17px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .send-btn:disabled { background: var(--teal); }
+
+    .loading-text { text-align: center; padding: 30px; color: var(--muted); font-size: 12px; }
+    .empty-state { text-align: center; padding: 32px 16px; color: var(--muted); }
+    .empty-icon { font-size: 36px; margin-bottom: 8px; opacity: 0.2; }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ─── DATOS ────────────────────────────────────────────────────────────────
+var TICKERS = {
+  GGAL:{type:"accion",name:"Grupo Financiero Galicia"},YPF:{type:"accion",name:"YPF S.A."},
+  PAMP:{type:"accion",name:"Pampa Energia"},BBAR:{type:"accion",name:"BBVA Argentina"},
+  BMA:{type:"accion",name:"Banco Macro"},TXAR:{type:"accion",name:"Ternium Argentina"},
+  TECO2:{type:"accion",name:"Telecom Argentina"},ALUA:{type:"accion",name:"Aluar Aluminio"},
+  AAPL:{type:"cedear",name:"Apple Inc."},MELI:{type:"cedear",name:"MercadoLibre"},
+  GOOGL:{type:"cedear",name:"Alphabet Inc."},MSFT:{type:"cedear",name:"Microsoft Corp."},
+  TSLA:{type:"cedear",name:"Tesla Inc."},NVDA:{type:"cedear",name:"NVIDIA Corp."},
+  AL30:{type:"bono",name:"Bono Soberano AL30"},GD30:{type:"bono",name:"Global Bond GD30"},
+  AE38:{type:"bono",name:"Global Bond AE38"},AL35:{type:"bono",name:"Bono Soberano AL35"},
+  GD35:{type:"bono",name:"Global Bond GD35"},GD46:{type:"bono",name:"Global Bond GD46"},
+  AL29:{type:"bono",name:"Bono Soberano AL29"},
+};
+var DATOS = {
+  GGAL:{price:4820,change:2.3,high:4910,low:4710,volume:"12.4M",mktcap:"ARS 1.8T",pe:8.2,div:"1.2%",w52h:5200,w52l:1800},
+  YPF:{price:22400,change:-0.8,high:22900,low:22100,volume:"8.1M",mktcap:"ARS 8.9T",pe:5.1,div:"0%",w52h:24500,w52l:8900},
+  PAMP:{price:3650,change:1.5,high:3720,low:3580,volume:"5.6M",mktcap:"ARS 2.1T",pe:6.8,div:"2.1%",w52h:3980,w52l:1200},
+  BBAR:{price:2180,change:3.1,high:2240,low:2110,volume:"9.2M",mktcap:"ARS 980B",pe:7.4,div:"0.9%",w52h:2450,w52l:780},
+  BMA:{price:8900,change:1.8,high:9100,low:8750,volume:"3.4M",mktcap:"ARS 1.2T",pe:9.1,div:"1.8%",w52h:9800,w52l:3200},
+  TXAR:{price:1420,change:-1.2,high:1460,low:1390,volume:"4.8M",mktcap:"ARS 620B",pe:4.3,div:"3.2%",w52h:1680,w52l:520},
+  TECO2:{price:1280,change:0.6,high:1310,low:1250,volume:"6.1M",mktcap:"ARS 1.4T",pe:11.2,div:"4.1%",w52h:1450,w52l:480},
+  ALUA:{price:1890,change:2.7,high:1940,low:1850,volume:"7.3M",mktcap:"ARS 890B",pe:7.9,div:"2.8%",w52h:2100,w52l:680},
+  AAPL:{price:198500,change:0.9,high:201200,low:196800,volume:"890K",mktcap:"USD 3.0T",pe:31.2,div:"0.5%",w52h:215000,w52l:148000},
+  MELI:{price:2180000,change:1.4,high:2210000,low:2150000,volume:"120K",mktcap:"USD 108B",pe:58.4,div:"0%",w52h:2380000,w52l:1580000},
+  GOOGL:{price:185000,change:-0.3,high:187500,low:183200,volume:"540K",mktcap:"USD 2.3T",pe:22.1,div:"0.5%",w52h:198000,w52l:142000},
+  MSFT:{price:451000,change:1.2,high:456000,low:448000,volume:"380K",mktcap:"USD 3.4T",pe:36.8,div:"0.7%",w52h:468000,w52l:358000},
+  TSLA:{price:350000,change:-2.1,high:362000,low:346000,volume:"1.2M",mktcap:"USD 1.1T",pe:89.3,div:"0%",w52h:480000,w52l:195000},
+  NVDA:{price:1380000,change:3.8,high:1410000,low:1350000,volume:"890K",mktcap:"USD 3.4T",pe:42.1,div:"0.1%",w52h:1450000,w52l:680000},
+  AL30:{price:64800,change:0.4,tir:"12.8%",dur:"3.2 años",paridad:"42%",currency:"ARS/USD",vto:"Jul 2030",coupon:"0.125% sem.",amort:"Semestral"},
+  GD30:{price:62400,change:0.9,tir:"11.2%",dur:"3.8 años",paridad:"52%",currency:"USD",vto:"Jul 2030",coupon:"0.125% sem.",amort:"Semestral"},
+  AE38:{price:71200,change:-0.2,tir:"13.1%",dur:"6.4 años",paridad:"47%",currency:"USD",vto:"Ene 2038",coupon:"1% sem.",amort:"2029-2038"},
+  AL35:{price:48900,change:1.1,tir:"14.2%",dur:"4.8 años",paridad:"38%",currency:"ARS/USD",vto:"Jul 2035",coupon:"3.625% sem.",amort:"Semestral"},
+  GD35:{price:58200,change:0.6,tir:"12.4%",dur:"5.2 años",paridad:"44%",currency:"USD",vto:"Jul 2035",coupon:"3.625% sem.",amort:"Semestral"},
+  GD46:{price:72100,change:1.3,tir:"14.8%",dur:"9.2 años",paridad:"51%",currency:"USD",vto:"Jul 2046",coupon:"0.5% sem.",amort:"Semestral"},
+  AL29:{price:52300,change:0.2,tir:"11.9%",dur:"2.1 años",paridad:"46%",currency:"ARS/USD",vto:"Jul 2029",coupon:"4.625% sem.",amort:"Semestral"},
+};
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────
+var state = {
+  screen: "home", ticker: null, info: null, data: null,
+  tickerView: "datos", msgs: [], inputVal: "",
+  dolares: null, riesgo: null, fondos: null,
+  loading: false, apiLoading: false, fondoFiltro: "mm",
+  lastUpdate: null, apiError: "",
+};
+
+function setState(patch) { Object.assign(state, patch); render(); }
+
+// ─── APIs ─────────────────────────────────────────────────────────────────
+async function cargarDolares() {
+  setState({apiLoading: true, apiError: ""});
+  try {
+    var [dRes, rRes] = await Promise.all([
+      fetch("https://dolarapi.com/v1/dolares"),
+      fetch("https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo")
+    ]);
+    var dArr = await dRes.json();
+    var rp = await rRes.json();
+    var dMap = {};
+    dArr.forEach(function(d){ dMap[d.casa] = d; });
+    setState({dolares: dMap, riesgo: rp, apiLoading: false, lastUpdate: new Date()});
+  } catch(e) {
+    setState({apiLoading: false, apiError: "Error al cargar datos. Verificá tu conexión."});
+  }
+}
+
+async function cargarBilleteras() {
+  setState({apiLoading: true, apiError: ""});
+  try {
+    var [mmRes, rfRes] = await Promise.all([
+      fetch("https://api.argentinadatos.com/v1/finanzas/fci/mercadoDinero/ultimos"),
+      fetch("https://api.argentinadatos.com/v1/finanzas/fci/rentaFija/ultimos")
+    ]);
+    var mm = await mmRes.json();
+    var rf = await rfRes.json();
+    var fondosMap = {};
+    mm.forEach(function(f){ if(!fondosMap[f.fondo]||fondosMap[f.fondo].fecha<f.fecha) fondosMap[f.fondo]={...f,tipo:"mm"}; });
+    var rfMap = {};
+    rf.forEach(function(f){ if(!rfMap[f.fondo]||rfMap[f.fondo].fecha<f.fecha) rfMap[f.fondo]={...f,tipo:"rf"}; });
+    var mmArr = Object.values(fondosMap).sort(function(a,b){return (b.tna||0)-(a.tna||0);});
+    var rfArr = Object.values(rfMap).sort(function(a,b){return (b.tna||0)-(a.tna||0);});
+    setState({fondos:{mm:mmArr,rf:rfArr}, apiLoading:false, lastUpdate:new Date()});
+  } catch(e) {
+    setState({apiLoading: false, apiError: "Error al cargar rendimientos."});
+  }
+}
+
+// ─── ANÁLISIS ─────────────────────────────────────────────────────────────
+function analizar(q, ticker, info, d) {
+  var ql = q.toLowerCase();
+  var isBono = info.type==="bono", isCedear = info.type==="cedear";
+  var sube = d.change >= 0;
+  if(ql.includes("riesgo")||ql.includes("contra")){
+    if(isBono) return "⚠️ <b>Riesgos de "+ticker+":</b><br><br>Principal: <b>riesgo soberano</b> — historial de reestructuraciones (2001, 2020) y la paridad de "+d.paridad+" refleja que el mercado no descarta un evento similar.<br><br>Con duration "+d.dur+", si el riesgo país sube 100 bps el precio cae ~"+(parseFloat(d.dur)*1).toFixed(1)+"%. Además hay riesgo cambiario si tenés la posición en pesos.<br><br>Estrategia: no concentrar más del 20-25% en un solo soberano argentino.";
+    if(isCedear) return "⚠️ <b>Riesgos de "+ticker+" CEDEAR:</b><br><br><b>Riesgo cambiario</b>: el precio en ARS sigue al CCL. Si el CCL baja, el CEDEAR baja en pesos aunque la acción en NYSE no se mueva.<br><br><b>Riesgo empresa</b>: P/E "+d.pe+"x — cualquier decepción de earnings puede generar caídas del 10-15%.<br><br>Verificá siempre el precio teórico antes de comprar.";
+    return "⚠️ <b>Riesgos de "+ticker+":</b><br><br><b>Macro</b>: inflación, tipo de cambio y regulaciones afectan directamente. Una devaluación puede licuar márgenes.<br><br><b>Regulatorio</b>: el cepo limita dividendos al exterior. Los bancos tienen exposición adicional al soberano.<br><br>Usá stop-loss y no entrés con todo el capital de una vez.";
+  }
+  if(ql.includes("barata")||ql.includes("cara")||ql.includes("valuaci")){
+    if(isBono) return "📊 <b>Valuación de "+ticker+":</b><br><br>TIR "+d.tir+" y paridad "+d.paridad+". Un soberano investment grade cotiza con TIR 4-6%; la diferencia es la prima de riesgo argentina.<br><br>Paridad "+d.paridad+": comprás ese porcentaje de valor nominal por cada 100 de face value. Si Argentina mejora su perfil crediticio hay upside por compresión de spreads.";
+    if(isCedear) return "📊 <b>Valuación de "+ticker+":</b><br><br>P/E "+d.pe+"x en NYSE. "+(d.pe>40?"Múltiplo alto — cualquier desaceleración puede castigar fuerte.":d.pe>20?"Rango normal para el sector.":"Relativamente barato.")+"<br><br>Para saber si el CEDEAR está caro vs NYSE: precio NYSE × ratio de conversión × CCL. Si ese resultado es mayor al precio local, hay descuento.<br><br>Rango 52s: ARS "+d.w52l.toLocaleString("es-AR")+" – "+d.w52h.toLocaleString("es-AR")+".";
+    return "📊 <b>Valuación de "+ticker+":</b><br><br>P/E "+d.pe+"x — "+(d.pe<7?"bajo, posible subvaluación.":d.pe<12?"razonable en el contexto argentino.":"algo elevado.")+" El Merval históricamente cotiza entre 6x-10x.<br><br>Está al "+((d.price/d.w52h)*100).toFixed(0)+"% de su máximo 52s (ARS "+d.w52h.toLocaleString("es-AR")+"). Dividend yield "+d.div+".";
+  }
+  if(ql.includes("entrar")||ql.includes("comprar")||ql.includes("conviene")||ql.includes("ahora")){
+    if(isBono) return "🎯 <b>¿Conviene entrar en "+ticker+"?</b><br><br>Con TIR "+d.tir+" y vencimiento "+d.vto+", si mantenés hasta el vencimiento la TIR de entrada es tu retorno.<br><br>El bono está "+(sube?"con momentum positivo hoy (+"+d.change+"%)":"cayendo hoy ("+d.change+"%).")+". Catalizador: riesgo país. Sobre 800 bps con perspectiva de compresión, es momento.<br><br>Sugerencia: entrar en tramos (30-40-30%) ante caídas.";
+    return "🎯 <b>¿Conviene entrar en "+ticker+"?</b><br><br>El papel "+(sube?"sube "+d.change+"% hoy":"baja "+Math.abs(d.change)+"% hoy")+". Está al "+((d.price/d.w52h)*100).toFixed(0)+"% de su máximo anual.<br><br>Entrada sugerida en 2-3 tramos. Soporte cerca del mínimo 52s (ARS "+d.w52l.toLocaleString("es-AR")+").<br><br><b>Stop-loss</b>: 8-10% por debajo del precio de entrada. <b>Take profit parcial</b>: 15-20%.";
+  }
+  if(ql.includes("ccl")||ql.includes("ratio")||ql.includes("conversi")){
+    if(isCedear) return "💱 <b>CCL implícito en "+ticker+":</b><br><br>Fórmula: CCL = Precio ARS / (Precio USD en NYSE × ratio de conversión).<br><br>El ratio lo encontrás en tu broker (Rava, IOL, Bull Market). Si el precio de mercado es mayor al teórico hay prima (caro). Si es menor hay descuento. Diferencia normal: ±2-5%.";
+  }
+  if(ql.includes("compar")||ql.includes(" vs ")||ql.includes("alternativa")){
+    if(isBono) return "⚖️ <b>"+ticker+" vs. otros bonos:</b><br><br>Clave: legislación (NY vs. local) y duration. Los GD (ley NY) tienen mejor protección legal — históricamente 100-200 bps de spread sobre los AL.<br><br>Menos duration: AL29 o GD30. Más duration para apostar a compresión: GD46.";
+    return "⚖️ <b>"+ticker+" vs. el sector:</b><br><br>Comparables: GGAL, BMA, BBAR, SUPV. Todos con P/E 5x-10x por el descuento de riesgo país. GGAL y BMA son los de mayor liquidez.<br><br>Para elegir: mirá ROE, NIM y ratio de morosidad.";
+  }
+  var ctx = isBono ? ticker+" — ARS "+d.price.toLocaleString("es-AR")+" | TIR "+d.tir+" | Paridad "+d.paridad+" | Vto "+d.vto : ticker+" — ARS "+d.price.toLocaleString("es-AR")+" ("+(sube?"+":"")+d.change+"%) | P/E "+d.pe+"x";
+  return "📌 <b>"+ticker+"</b><br><br>"+ctx+"<br><br>Podés preguntarme sobre:<br>• Valuación — ¿está barato o caro?<br>• Riesgos — qué puede salir mal<br>• Entrada — cuándo y cómo posicionarse<br>• Comparación vs. el sector"+(isCedear?"<br>• CCL y ratio de conversión":"")+(isBono?"<br>• Renta, cupones y pagos":"");
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────
+function fmt(n){ return n ? n.toLocaleString("es-AR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—"; }
+function timeStr(d){ return d ? d.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}) : ""; }
+
+function renderSidebar() {
+  var s = state;
+  var items = [
+    {id:"home", icon:"🏠", label:"Inicio"},
+    {id:"dolar", icon:"💵", label:"Tipo de Cambio"},
+    {id:"billeteras", icon:"📈", label:"Billeteras / FCI"},
+    {id:"chatlibre", icon:"🤖", label:"Consulta IA"},
+  ];
+  var html = '<div style="padding:16px 14px;border-bottom:1px solid var(--border)">';
+  html += '<div style="display:flex;align-items:center;gap:9px">';
+  html += '<div class="header-logo">M</div>';
+  html += '<div><div class="header-title">ANALYST <span>MERVALAZO</span></div><div class="header-sub">BYMA · CEDEARs · BONOS</div></div>';
+  html += '</div></div>';
+  html += '<nav style="padding:10px 8px;flex:1">';
+  items.forEach(function(item) {
+    var active = s.screen === item.id || (item.id === "home" && s.screen === "ticker");
+    html += '<button onclick="navTo(\''+item.id+'\')" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:none;background:'+(active?"var(--teal)":"transparent")+';color:'+(active?"var(--cream)":"var(--muted)")+';font-size:13px;font-family:inherit;cursor:pointer;margin-bottom:2px;text-align:left">';
+    html += '<span style="font-size:16px">'+item.icon+'</span>'+item.label+'</button>';
+  });
+  html += '</nav>';
+  // Tickers rápidos
+  html += '<div style="padding:10px 14px;border-top:1px solid var(--border)">';
+  html += '<div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:8px">TICKERS RÁPIDOS</div>';
+  ["GGAL","YPF","BMA","AL30","GD30","AAPL","MELI","NVDA"].forEach(function(t) {
+    html += '<button onclick="buscarTicker(\''+t+'\')" style="background:transparent;border:1px solid var(--border);border-radius:5px;padding:3px 9px;color:var(--muted);font-size:10px;font-family:inherit;cursor:pointer;margin:2px">'+t+'</button>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function navTo(screen) {
+  if(screen === "dolar") irADolar();
+  else if(screen === "billeteras") irABilleteras();
+  else if(screen === "chatlibre") irAChatLibre();
+  else goHome();
+}
+
+function render() {
+  var app = document.getElementById("app");
+  var s = state;
+  var isDesktop = window.innerWidth >= 900;
+
+  if(isDesktop) {
+    var mainContent = "";
+    // El header va dentro del main en desktop
+    mainContent += '<div class="header" style="display:flex">';
+    mainContent += '<div style="display:flex;align-items:center;gap:9px"><div class="header-logo">M</div><div><div class="header-title">ANALYST <span>MERVALAZO</span></div><div class="header-sub">BYMA · CEDEARs · BONOS · EN VIVO</div></div></div>';
+    if(s.screen !== "home" && s.screen !== "dolar" && s.screen !== "billeteras" && s.screen !== "chatlibre") {
+      mainContent += '<button class="btn-back" onclick="goHome()">← volver</button>';
+    }
+    mainContent += '</div>';
+    if(s.screen === "home") mainContent += renderHome();
+    else if(s.screen === "dolar") mainContent += renderDolar();
+    else if(s.screen === "billeteras") mainContent += renderBilleteras();
+    else if(s.screen === "ticker") mainContent += renderTicker();
+    else if(s.screen === "chatlibre") mainContent += renderChatLibre();
+
+    app.innerHTML =
+      '<div id="desktop-sidebar">'+renderSidebar()+'</div>'+
+      '<div id="desktop-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">'+mainContent+'</div>';
+  } else {
+    var html = "";
+    html += '<div class="header">';
+    html += '<div style="display:flex;align-items:center;gap:9px"><div class="header-logo">M</div><div><div class="header-title">ANALYST <span>MERVALAZO</span></div><div class="header-sub">BYMA · CEDEARs · BONOS · EN VIVO</div></div></div>';
+    if(s.screen !== "home") html += '<button class="btn-back" onclick="goHome()">← volver</button>';
+    html += '</div>';
+    if(s.screen === "home") html += renderHome();
+    else if(s.screen === "dolar") html += renderDolar();
+    else if(s.screen === "billeteras") html += renderBilleteras();
+    else if(s.screen === "ticker") html += renderTicker();
+    else if(s.screen === "chatlibre") html += renderChatLibre();
+    app.innerHTML = html;
+  }
+
+  // Auto-scroll chat
+  var msgs = document.getElementById("messages");
+  if(msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Re-render on resize
+window.addEventListener("resize", function() { render(); });
+
+function renderHome(){
+  var s = state;
+  return '<div class="home">'+
+    '<div class="search-box">'+
+      '<div class="search-label">BUSCAR TICKER</div>'+
+      '<div class="search-row">'+
+        '<input class="search-input" id="tickerInput" value="'+s.inputVal+'" placeholder="GGAL  AL30  AAPL..." autocapitalize="characters" oninput="state.inputVal=this.value.toUpperCase();this.value=state.inputVal" onkeydown="if(event.key===\'Enter\')buscarTicker()"/>'+
+        '<button class="search-btn" onclick="buscarTicker()">'+(s.loading?"…":"→")+'</button>'+
+      '</div>'+
+      (s.apiError?'<div class="error-msg">⚠ '+s.apiError+'</div>':'')+
+      '<div class="quick-tickers">'+
+        ["GGAL","YPF","BMA","AL30","GD30","GD46","AAPL","MELI","NVDA"].map(function(t){
+          return '<button class="quick-btn" onclick="buscarTicker(\''+t+'\')">'+t+'</button>';
+        }).join("")+
+      '</div>'+
+    '</div>'+
+    '<div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;margin-bottom:8px">DATOS EN TIEMPO REAL</div>'+
+    '<div class="live-grid">'+
+      '<button class="live-card" style="border:1px solid rgba(210,153,34,0.3)" onclick="irADolar()">'+
+        '<div class="live-icon">💵</div>'+
+        '<div class="live-title">Tipo de Cambio</div>'+
+        '<div class="live-sub">Oficial · Blue · MEP · CCL</div>'+
+        '<div class="live-dot" style="color:var(--yellow)">● EN VIVO</div>'+
+      '</button>'+
+      '<button class="live-card" style="border:1px solid rgba(63,185,80,0.3)" onclick="irABilleteras()">'+
+        '<div class="live-icon">📈</div>'+
+        '<div class="live-title">Billeteras / FCI</div>'+
+        '<div class="live-sub">TNA · TEA en tiempo real</div>'+
+        '<div class="live-dot" style="color:var(--green)">● EN VIVO</div>'+
+      '</button>'+
+    '</div>'+
+    // Chat libre IA
+    '<div style="margin-top:4px">'+
+    '<button onclick="irAChatLibre()" style="width:100%;background:linear-gradient(135deg,#1a1a2e,#163f40);border:1px solid rgba(88,166,255,0.3);border-radius:11px;padding:14px 12px;cursor:pointer;text-align:left">'+
+      '<div style="font-size:22px;margin-bottom:6px">🤖</div>'+
+      '<div style="font-size:12px;color:var(--cream);font-weight:700;margin-bottom:3px">Consulta libre al Analyst</div>'+
+      '<div style="font-size:10px;color:var(--muted)">LECAPs · BONCAPs · Letras · Cualquier pregunta</div>'+
+      '<div style="font-size:9px;color:var(--blue);margin-top:5px;font-weight:700">● BUSCA EN RENDIMIENTOS.CO</div>'+
+    '</button></div>'+
+  '</div>';
+}
+
+function renderDolar(){
+  var s = state;
+  var inner = '';
+  if(s.apiLoading) { inner = '<div class="loading-text">Cargando datos en tiempo real...</div>'; }
+  else if(s.apiError) { inner = '<div style="padding:16px;color:var(--red);font-size:12px">'+s.apiError+' <button onclick="irADolar()" style="color:var(--salmon);background:none;border:none;font-size:12px;font-family:inherit;cursor:pointer">Reintentar</button></div>'; }
+  else if(s.dolares) {
+    var orden = ["oficial","blue","mep","ccl","cripto","mayorista","bolsa","tarjeta"];
+    var nombres = {oficial:"Oficial",blue:"Blue",mep:"MEP",ccl:"CCL",cripto:"Cripto",mayorista:"Mayorista",bolsa:"Bolsa",tarjeta:"Tarjeta"};
+    inner += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    inner += '<span class="section-label">TIPO DE CAMBIO</span>';
+    inner += '<button class="panel-refresh" onclick="irADolar()">↻ '+timeStr(s.lastUpdate)+'</button>';
+    inner += '</div>';
+    inner += '<div class="dolar-grid">';
+    orden.forEach(function(casa){
+      if(!s.dolares[casa]) return;
+      var d = s.dolares[casa];
+      inner += '<div class="dolar-card"><div class="dolar-name">'+(nombres[casa]||casa).toUpperCase()+'</div>';
+      inner += '<div class="dolar-vals"><div><div class="dolar-label">Compra</div><div class="dolar-val">$'+fmt(d.compra)+'</div></div>';
+      inner += '<div style="text-align:right"><div class="dolar-label">Venta</div><div class="dolar-val" style="color:'+(casa==="blue"?"var(--yellow)":"var(--cream)")+'">$'+fmt(d.venta)+'</div></div></div></div>';
+    });
+    inner += '</div>';
+    if(s.riesgo){
+      var rp = s.riesgo.valor;
+      var rpColor = rp>1500?"var(--red)":rp>900?"var(--yellow)":"var(--green)";
+      inner += '<div class="riesgo-card">';
+      inner += '<div class="section-label">RIESGO PAÍS (JP MORGAN)</div>';
+      inner += '<div style="display:flex;align-items:baseline;gap:10px"><span class="riesgo-val" style="color:'+rpColor+'">'+(rp?rp.toLocaleString("es-AR"):"—")+'</span><span style="font-size:11px;color:var(--muted)">bps · '+(s.riesgo.fecha?s.riesgo.fecha.slice(0,10):"")+'</span></div>';
+      inner += '<div class="riesgo-sub">'+(rp>1500?"⚠️ Nivel de stress elevado":rp>900?"Nivel moderado-alto":"✅ Nivel contenido")+'</div></div>';
+    }
+    if(s.dolares.oficial&&s.dolares.blue){
+      var of = s.dolares.oficial.venta, bl = s.dolares.blue.venta, mp = s.dolares.mep&&s.dolares.mep.venta, cc = s.dolares.ccl&&s.dolares.ccl.venta;
+      inner += '<div class="brecha-card"><div class="section-label" style="margin-bottom:6px">BRECHA CAMBIARIA</div><div class="brecha-grid">';
+      inner += '<div class="brecha-item"><div class="brecha-label">Blue/Oficial</div><div class="brecha-val">'+((bl/of-1)*100).toFixed(1)+'%</div></div>';
+      inner += '<div class="brecha-item"><div class="brecha-label">MEP/Oficial</div><div class="brecha-val">'+(mp?((mp/of-1)*100).toFixed(1)+"%" : "—")+'</div></div>';
+      inner += '<div class="brecha-item"><div class="brecha-label">CCL/Oficial</div><div class="brecha-val">'+(cc?((cc/of-1)*100).toFixed(1)+"%" : "—")+'</div></div>';
+      inner += '</div></div>';
+    }
+  }
+  return '<div class="panel-header" style="background:#1a1a0a"><div class="dot" style="background:var(--yellow);box-shadow:0 0 4px var(--yellow)"></div><span class="panel-title" style="color:var(--yellow)">TIPO DE CAMBIO · EN VIVO</span><button class="panel-refresh" style="margin-left:auto" onclick="irADolar()">↻</button></div>'+
+    '<div class="panel">'+inner+'</div>';
+}
+
+function renderBilleteras(){
+  var s = state;
+  var inner = '';
+  if(s.apiLoading) { inner = '<div class="loading-text">Cargando rendimientos...</div>'; }
+  else if(s.apiError) { inner = '<div style="padding:16px;color:var(--red);font-size:12px">'+s.apiError+' <button onclick="irABilleteras()" style="color:var(--salmon);background:none;border:none;font-size:12px;font-family:inherit;cursor:pointer">Reintentar</button></div>'; }
+  else if(s.fondos){
+    inner += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+    inner += '<span class="section-label">RENDIMIENTOS FCI</span>';
+    inner += '<button class="panel-refresh" onclick="irABilleteras()">↻ '+timeStr(s.lastUpdate)+'</button></div>';
+    inner += '<div class="tab-row">';
+    inner += '<button class="tab-btn" style="background:'+(s.fondoFiltro==="mm"?"var(--teal)":"transparent")+';color:'+(s.fondoFiltro==="mm"?"var(--cream)":"var(--muted)")+'" onclick="setState({fondoFiltro:\'mm\'})">💵 Mercado Dinero</button>';
+    inner += '<button class="tab-btn" style="background:'+(s.fondoFiltro==="rf"?"var(--teal)":"transparent")+';color:'+(s.fondoFiltro==="rf"?"var(--cream)":"var(--muted)")+'" onclick="setState({fondoFiltro:\'rf\'})">📈 Renta Fija</button>';
+    inner += '</div>';
+    var lista = (s.fondos[s.fondoFiltro]||[]).slice(0,25);
+    lista.forEach(function(f,i){
+      var tna = f.tna?(f.tna*100).toFixed(2):null;
+      var tea = f.tea?(f.tea*100).toFixed(2):null;
+      inner += '<div class="fondo-card'+(i===0?" top":"")+'">';
+      if(i===0) inner += '<span class="top-badge">MEJOR TNA</span>';
+      inner += '<div class="fondo-name">'+f.fondo+'</div>';
+      inner += '<div class="fondo-vals">';
+      if(tna) inner += '<div class="fondo-val-group"><div class="fondo-val-label">TNA</div><div class="fondo-val-num" style="color:var(--green)">'+tna+'%</div></div>';
+      if(tea) inner += '<div class="fondo-val-group"><div class="fondo-val-label">TEA</div><div class="fondo-val-num" style="color:var(--yellow)">'+tea+'%</div></div>';
+      inner += '<div class="fondo-val-group"><div class="fondo-val-label">Fecha</div><div style="font-size:11px;color:var(--muted)">'+(f.fecha?f.fecha.slice(0,10):"—")+'</div></div>';
+      inner += '</div></div>';
+    });
+  }
+  return '<div class="panel-header" style="background:#0a1a0a"><div class="dot" style="background:var(--green);box-shadow:0 0 4px var(--green)"></div><span class="panel-title" style="color:var(--green)">RENDIMIENTOS FCI · EN VIVO</span></div>'+
+    '<div class="panel">'+inner+'</div>';
+}
+
+function renderTicker(){
+  var s = state;
+  if(!s.data||!s.info||!s.ticker) return "";
+  var d = s.data, inf = s.info, t = s.ticker;
+  var sube = d.change >= 0;
+  var badgeColor = inf.type==="accion"?"var(--green)":inf.type==="cedear"?"var(--blue)":"var(--salmon)";
+  var badgeLabel = inf.type==="accion"?"ACCION BYMA":inf.type==="cedear"?"CEDEAR":"BONO SOBERANO";
+
+  var html = '';
+  html += '<div class="ticker-card">';
+  html += '<div style="flex:1;min-width:0"><span class="badge" style="color:'+badgeColor+';border:1px solid '+badgeColor+'33;background:'+badgeColor+'15">'+badgeLabel+'</span>';
+  html += '<div class="ticker-name-big">'+t+'</div><div class="ticker-fullname">'+inf.name+'</div></div>';
+  html += '<div style="text-align:right;flex-shrink:0"><div class="ticker-price">ARS '+d.price.toLocaleString("es-AR")+'</div>';
+  html += '<div class="ticker-change" style="color:'+(sube?"var(--green)":"var(--red)")+'">'+(sube?"▲":"▼")+' '+Math.abs(d.change)+'%</div></div></div>';
+
+  html += '<div class="tabs">';
+  html += '<button class="tab" style="background:'+(s.tickerView==="datos"?"var(--teal)":"transparent")+';color:'+(s.tickerView==="datos"?"var(--cream)":"var(--muted)")+'" onclick="setState({tickerView:\'datos\'})">📊 DATOS</button>';
+  html += '<button class="tab" style="background:'+(s.tickerView==="chat"?"var(--teal)":"transparent")+';color:'+(s.tickerView==="chat"?"var(--cream)":"var(--muted)")+'" onclick="setState({tickerView:\'chat\'})">💬 ANALYST'+(s.msgs.length>1?" ("+(s.msgs.length-1)+")":"")+'</button>';
+  html += '</div>';
+
+  if(s.tickerView === "datos") {
+    var metricas = inf.type!=="bono" ? [
+      {l:"Max dia",v:"ARS "+d.high.toLocaleString("es-AR")},{l:"Min dia",v:"ARS "+d.low.toLocaleString("es-AR")},
+      {l:"Volumen",v:d.volume},{l:"Mkt Cap",v:d.mktcap},
+      {l:"P/E",v:d.pe+"x"},{l:"Div yield",v:d.div},
+      {l:"Max 52s",v:"ARS "+d.w52h.toLocaleString("es-AR")},{l:"Min 52s",v:"ARS "+d.w52l.toLocaleString("es-AR")},
+    ] : [
+      {l:"TIR",v:d.tir},{l:"Paridad",v:d.paridad},{l:"Duration",v:d.dur},{l:"Moneda",v:d.currency},
+      {l:"Vto",v:d.vto},{l:"Cupon",v:d.coupon},{l:"Amort",v:d.amort},{l:"Var dia",v:(d.change>0?"+":"")+d.change+"%"},
+    ];
+    html += '<div style="flex:1;overflow-y:auto;padding:8px 14px 20px">';
+    html += '<div class="metrics-grid">';
+    metricas.forEach(function(m){
+      html += '<div class="metric-card"><div class="metric-label">'+m.l.toUpperCase()+'</div><div class="metric-val">'+m.v+'</div></div>';
+    });
+    html += '</div>';
+    html += '<button class="chat-cta" onclick="setState({tickerView:\'chat\'})">💬 Preguntale al Analyst sobre '+t+' →</button>';
+    html += '</div>';
+  } else {
+    var sugs = inf.type==="bono"?["¿Conviene vs GD30?","¿Qué riesgos tiene?","¿Rendimiento en USD?"]:
+               inf.type==="cedear"?["¿Cómo calculo el CCL?","¿Está cara o barata?","¿Momento para entrar?"]:
+               ["¿Está barata o cara?","¿Cuáles son los riesgos?","¿Tiene upside?"];
+    html += '<div class="chat-wrap">';
+    html += '<div class="chat-header"><div class="dot" style="background:var(--green);box-shadow:0 0 4px var(--green)"></div><span style="font-size:9px;letter-spacing:2px;color:var(--cream);font-weight:700">ANALYST · '+t+'</span></div>';
+    html += '<div class="messages" id="messages">';
+    s.msgs.forEach(function(m){
+      html += '<div class="msg-row '+(m.role==="user"?"user":"")+'">';
+      if(m.role==="assistant") html += '<div class="avatar">M</div>';
+      html += '<div class="bubble '+m.role+'">'+m.content+'</div></div>';
+    });
+    if(s.chatLoading) {
+      var loadingText = s.searchingWeb
+        ? '<span style="color:var(--green);font-size:10px">🔍 buscando en rendimientos.co...</span>'
+        : '<span class="typing">...</span>';
+      html += '<div class="msg-row"><div class="avatar">M</div><div class="bubble assistant">'+loadingText+'</div></div>';
+    }
+    html += '<div id="msgEnd"></div></div>';
+    if(s.msgs.length <= 1){
+      html += '<div class="suggestions">';
+      sugs.forEach(function(sg){ html += '<button class="sug-btn" onclick="setSuggest(\''+sg.replace(/'/g,"\\'")+'\')" >'+sg+'</button>'; });
+      html += '</div>';
+    }
+    html += '<div class="chat-input-row">';
+    html += '<input class="chat-input" id="chatInput" placeholder="Preguntá sobre '+t+'..." onkeydown="if(event.key===\'Enter\')enviarMsg()" value="'+(s.chatInputVal||"")+'"/>';
+    html += '<button class="send-btn" onclick="enviarMsg()" '+(s.chatLoading?'disabled':'')+'>→</button>';
+    html += '</div></div>';
+  }
+  return html;
+}
+
+// ─── ACCIONES ─────────────────────────────────────────────────────────────
+function goHome(){ setState({screen:"home",ticker:null,data:null,info:null,msgs:[],inputVal:"",apiError:"",chatLibreMsgs:[]}); }
+
+function irAChatLibre(){
+  if(!state.chatLibreMsgs || state.chatLibreMsgs.length === 0) {
+    setState({chatLibreMsgs:[{role:"assistant",content:"🤖 <b>Analyst Mervalazo — consulta libre</b><br><br>Buscá datos actuales en rendimientos.co y otras fuentes. Preguntame sobre:<br><br>• ¿Qué LECAP tiene el menor vencimiento?<br>• ¿Cuál es la TNA de las letras hoy?<br>• ¿Qué billetera virtual paga más?<br>• ¿A cuánto está el CCL hoy?<br>• ¿Cuál es el riesgo país?<br><br>¡Lo que se te ocurra!"}]});
+  }
+  setState({screen:"chatlibre"});
+}
+function irADolar(){ setState({screen:"dolar",apiLoading:true,apiError:"",dolares:null,riesgo:null}); cargarDolares(); }
+function irABilleteras(){ setState({screen:"billeteras",apiLoading:true,apiError:"",fondos:null}); cargarBilleteras(); }
+
+function buscarTicker(t){
+  var sym = (t||state.inputVal||"").trim().toUpperCase();
+  if(!sym) return;
+  var inf = TICKERS[sym], dat = DATOS[sym];
+  if(!inf||!dat){ setState({apiError:'"'+sym+'" no encontrado. Probá: GGAL, YPF, AL30, GD30, AAPL, MELI...'}); return; }
+  var bienvenida = inf.type==="bono"
+    ? "<b>"+sym+" — "+inf.name+"</b><br><br>Cotiza a ARS "+dat.price.toLocaleString("es-AR")+" (paridad "+dat.paridad+"). TIR: "+dat.tir+". Vto: "+dat.vto+".<br><br>¿Qué querés analizar?"
+    : inf.type==="cedear"
+    ? "<b>"+sym+" — CEDEAR de "+inf.name+"</b><br><br>Cotiza en ARS "+dat.price.toLocaleString("es-AR")+" ("+(dat.change>0?"+":"")+dat.change+"%). P/E: "+dat.pe+"x.<br><br>¿Qué querés ver?"
+    : "<b>"+sym+" — "+inf.name+"</b><br><br>Cotiza en ARS "+dat.price.toLocaleString("es-AR")+" ("+(dat.change>0?"+":"")+dat.change+"%). P/E: "+dat.pe+"x, div yield: "+dat.div+".<br><br>¿Qué querés saber?";
+  setState({screen:"ticker",ticker:sym,info:inf,data:dat,msgs:[{role:"assistant",content:bienvenida}],tickerView:"datos",apiError:"",chatInputVal:""});
+}
+
+function setSuggest(s){ state.chatInputVal=s; render(); setTimeout(function(){ var el=document.getElementById("chatInput"); if(el){el.value=s;el.focus();} },50); }
+
+// ─── MARKDOWN A HTML ─────────────────────────────────────────────────────
+function mdToHtml(t) {
+  if (!t) return "";
+  var result = "";
+  var i = 0;
+  var NL = String.fromCharCode(10);
+  while (i < t.length) {
+    if (t[i] === "*" && i+1 < t.length && t[i+1] === "*") {
+      var end = t.indexOf("**", i+2);
+      if (end !== -1) {
+        result += "<b>" + t.slice(i+2, end) + "</b>";
+        i = end + 2;
+        continue;
+      }
+    }
+    if (t.charCodeAt(i) === 10) { result += "<br>"; i++; continue; }
+    result += t[i];
+    i++;
+  }
+  return result;
+}
+
+// ─── DETECCIÓN: ¿necesita IA con búsqueda web? ───────────────────────────
+function necesitaIA(q) {
+  var ql = q.toLowerCase();
+  var keywords = [
+    "lecap","boncap","letra","letras","lede","lecer",
+    "menor vencimiento","mayor tna","mejor tna","menor tna",
+    "tna","tea","tasa","rinde","rendimiento","rendimientos",
+    "billetera","cuenta remunerada","plazo fijo",
+    "riesgo pais","dolar hoy","ccl hoy","mep hoy","blue hoy",
+    "inflacion","ipc","indec","bcra",
+    "que conviene","donde poner","donde invertir",
+    "mercado hoy","que esta pasando"
+  ];
+  return keywords.some(function(k){ return ql.includes(k); });
+}
+
+// ─── LLAMADA AL PROXY NETLIFY (API key segura en servidor) ───────────────
+async function preguntarIA(pregunta, ticker, info, data) {
+  var contexto = "";
+  if(ticker && info && data) {
+    contexto = info.type === "bono"
+      ? ticker+" ("+info.name+"): ARS "+data.price.toLocaleString("es-AR")+", TIR "+data.tir+", paridad "+data.paridad+", vto "+data.vto
+      : ticker+" ("+info.name+"): ARS "+data.price.toLocaleString("es-AR")+", var "+data.change+"%, P/E "+data.pe+"x";
+  }
+
+  var systemPrompt = "Sos el Analyst de Mervalazo, experto en mercados financieros argentinos. "+
+    "Cuando el usuario pregunta sobre letras (LECAPs, BONCAPs, LEDEs, LECERs), TNA, rendimientos, billeteras virtuales, "+
+    "apps para comprar cripto o dólar, tipo de cambio o cualquier dato de mercado actual, "+
+    "buscá en rendimientos.co y otras fuentes argentinas confiables (argentinadatos.com, dolarapi.com, ambito.com, lemon.me, belo.app). "+
+    "Respondé siempre en español rioplatense, de forma concisa y directa, con datos concretos. "+
+    "Si encontrás tablas de letras o comparativas de apps, extraé la info clave y presentala ordenada. "+
+    "Máximo 4 párrafos. Usá ** para negritas. "+
+    (contexto ? "Contexto del activo que está mirando el usuario: "+contexto+"." : "");
+
+  var res = await fetch("/.netlify/functions/analyst", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      system: systemPrompt,
+      messages: [{ role: "user", content: pregunta }]
+    })
+  });
+
+  if(!res.ok) {
+    var errData = await res.json().catch(function(){ return {}; });
+    throw new Error(errData.error || "Error del servidor: " + res.status);
+  }
+
+  var result = await res.json();
+  // Gemini devuelve { text: "..." } desde nuestra función
+  return result.text || "No pude obtener datos en este momento.";
+}
+
+// ─── ENVIAR MENSAJE ───────────────────────────────────────────────────────
+function enviarMsg(){
+  var el = document.getElementById("chatInput");
+  var q = el ? el.value.trim() : (state.chatInputVal||"").trim();
+  if(!q||state.chatLoading) return;
+  var next = state.msgs.concat([{role:"user",content:q}]);
+  setState({msgs:next, chatLoading:true, chatInputVal:"", searchingWeb:false});
+
+  if(necesitaIA(q)) {
+    // Modo IA con web search
+    setState({searchingWeb:true});
+    preguntarIA(q, state.ticker, state.info, state.data)
+      .then(function(reply){
+        // Convertir markdown básico a HTML
+        reply = mdToHtml(reply);
+        setState({msgs:next.concat([{role:"assistant",content:reply}]), chatLoading:false, searchingWeb:false});
+      })
+      .catch(function(e){
+        setState({msgs:next.concat([{role:"assistant",content:"⚠️ No pude buscar en este momento: "+e.message}]), chatLoading:false, searchingWeb:false});
+      });
+  } else {
+    // Modo local
+    setTimeout(function(){
+      var reply = analizar(q, state.ticker, state.info, state.data);
+      setState({msgs:next.concat([{role:"assistant",content:reply}]),chatLoading:false});
+    }, 400+Math.random()*300);
+  }
+}
+
+// ─── CHAT LIBRE ───────────────────────────────────────────────────────────
+function renderChatLibre(){
+  var s = state;
+  var msgs = s.chatLibreMsgs || [];
+  var sugs = ["¿Qué LECAP vence antes?","¿Cuál es la mejor TNA hoy?","¿A cuánto está el CCL?","¿Qué billetera paga más?","¿Cuál es el riesgo país?"];
+  var html = '';
+  html += '<div class="panel-header" style="background:#0d0d1a"><div class="dot" style="background:var(--blue);box-shadow:0 0 4px var(--blue)"></div><span class="panel-title" style="color:var(--blue)">ANALYST IA · CONSULTA LIBRE</span></div>';
+  html += '<div class="chat-wrap">';
+  html += '<div class="messages" id="messages">';
+  msgs.forEach(function(m){
+    html += '<div class="msg-row '+(m.role==="user"?"user":"")+'">';
+    if(m.role==="assistant") html += '<div class="avatar">M</div>';
+    html += '<div class="bubble '+m.role+'">'+m.content+'</div></div>';
+  });
+  if(s.chatLoading){
+    var loadingText = s.searchingWeb
+      ? '<span style="color:var(--blue);font-size:10px">🔍 buscando en rendimientos.co...</span>'
+      : '<span class="typing">...</span>';
+    html += '<div class="msg-row"><div class="avatar">M</div><div class="bubble assistant">'+loadingText+'</div></div>';
+  }
+  html += '<div id="msgEnd"></div></div>';
+  if(msgs.length <= 1){
+    html += '<div class="suggestions">';
+    sugs.forEach(function(sg){ var escaped = sg.replace(/"/g,'&quot;'); html += '<button class="sug-btn" onclick="setSuggestLibre(this.dataset.v)" data-v="'+escaped+'">'+sg+'</button>'; });
+    html += '</div>';
+  }
+  html += '<div class="chat-input-row">';
+  html += '<input class="chat-input" id="chatInputLibre" placeholder="Preguntá sobre letras, billeteras, tipo de cambio..." onkeydown="if(event.key==&apos;Enter&apos;)enviarMsgLibre()" value="'+(s.chatLibreInputVal||'')+'"/>';
+  html += '<button class="send-btn" style="background:'+(s.chatLoading?'var(--teal)':'var(--blue)')+'" onclick="enviarMsgLibre()" '+(s.chatLoading?'disabled':'')+'>→</button>';
+  html += '</div></div>';
+  return html;
+}
+
+function setSuggestLibre(sug){
+  state.chatLibreInputVal = sug;
+  render();
+  setTimeout(function(){ var el=document.getElementById("chatInputLibre"); if(el){el.value=sug;el.focus();} },50);
+}
+
+function enviarMsgLibre(){
+  var el = document.getElementById("chatInputLibre");
+  var q = el ? el.value.trim() : (state.chatLibreInputVal||"").trim();
+  if(!q||state.chatLoading) return;
+  var next = (state.chatLibreMsgs||[]).concat([{role:"user",content:q}]);
+  setState({chatLibreMsgs:next, chatLoading:true, chatLibreInputVal:"", searchingWeb:true});
+  // Siempre usa IA con web search en el chat libre
+  preguntarIA(q, null, null, null)
+    .then(function(reply){
+      reply = mdToHtml(reply);
+      setState({chatLibreMsgs:next.concat([{role:"assistant",content:reply}]), chatLoading:false, searchingWeb:false});
+    })
+    .catch(function(e){
+      setState({chatLibreMsgs:next.concat([{role:"assistant",content:"⚠️ Error al buscar: "+e.message}]), chatLoading:false, searchingWeb:false});
+    });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
