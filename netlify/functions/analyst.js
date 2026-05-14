@@ -18,7 +18,7 @@ exports.handler = async function(event, context) {
 
   const geminiBody = {
     contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\nPregunta: " + userMessage }] }],
-    generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
   };
 
   const res = await fetch(url, {
