@@ -160,11 +160,22 @@ exports.handler = async function(event, context) {
   }
 
   // ── LLAMADA A GEMINI ──────────────────────────────────────────────────
+  // Fecha actual en Argentina (UTC-3)
+  const ahora = new Date();
+  const fechaArg = new Date(ahora.getTime() - 3 * 60 * 60 * 1000);
+  const fechaHoy = fechaArg.toISOString().slice(0, 10);
+
   const promptFinal = systemPrompt +
+    "\n\n== FECHA Y HORA ACTUAL EN ARGENTINA: " + fechaHoy + " ==" +
     "\n\n== DATOS OBTENIDOS EN TIEMPO REAL AHORA ==" +
     datosEnVivo +
     "\n\n== FIN DE DATOS EN TIEMPO REAL ==" +
-    "\n\nIMPORTANTE: Usá EXCLUSIVAMENTE los datos de arriba para responder. Si el dato está en la sección de arriba, usalo directamente con los números exactos. No inventes ni estimes nada. Si algún dato falta, decilo claramente.";
+    "\n\nIMPORTANTE: " +
+    "\n1. Usá EXCLUSIVAMENTE los datos de arriba para responder con números exactos." +
+    "\n2. La fecha de hoy es " + fechaHoy + ". IGNORÁ cualquier letra o instrumento cuya fecha de vencimiento ya pasó (sea anterior a hoy)." +
+    "\n3. Solo mostrá letras con vencimiento FUTURO (mayor a " + fechaHoy + ")." +
+    "\n4. Ordená las letras por fecha de vencimiento de menor a mayor (las que vencen antes primero)." +
+    "\n5. No inventes ni estimes nada. Si algún dato falta, decilo claramente.";
 
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_KEY;
 
